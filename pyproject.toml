@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "play-llamaindex"
+version = "0.1.0"
+description = ""
+authors = ["Mykhailo Chalyi <mike@chaliy.name>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+python-dotenv = "^1.0.0"
+llama-index = "^0.8.64"
+llama-hub = "^0.0.43"
+nest-asyncio = "^1.5.8"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.26.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
