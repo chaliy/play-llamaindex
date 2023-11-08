@@ -24,16 +24,31 @@ from llama_index import (
     StorageContext,
     ServiceContext
 )
-from llama_index.llms import OpenAI
-from llama_hub.github_repo import GithubClient, GithubRepositoryReader
 from llama_index.vector_stores.faiss import FaissVectorStore
+from llama_hub.github_repo import GithubClient, GithubRepositoryReader
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 DATA_PATH = Path("./data")
 
-llm = OpenAI(temperature=0.1, model="gpt-4")
-service_context = ServiceContext.from_defaults(llm=llm)
+def get_service_context(preset: str):
+    if preset == "bedrock":
+        from llama_index.llms import Bedrock
+        from llama_index.embeddings import BedrockEmbedding
+        # Requires AWS Environment Variables
+        return ServiceContext.from_defaults(
+            llm=Bedrock(
+                model="anthropic.claude-v2"
+            ),
+            embed_model=BedrockEmbedding.from_credentials()
+        )
+    elif preset == "openai":
+        from llama_index.llms import OpenAI
+        # Requires OpenAI/Azure OpenAI Environment Variables
+        return ServiceContext.from_defaults(
+            llm=OpenAI(temperature=0.1, model="gpt-4")
+        )
+    raise ValueError(f"Unknown preset: {preset}")
 
 def load_documents():
     documents_pkl_path = DATA_PATH / "local-api-documents.pkl"
@@ -60,17 +75,20 @@ def load_documents():
     return documents
 
 
-def get_or_build_index():
+def get_or_build_index(service_context, preset: str):
 
     faiss_index = faiss.IndexFlatL2(1536)
 
-    index_path = DATA_PATH / "local-api-index"
+    index_path = DATA_PATH / f"local-api-index-{preset}"
     if os.path.exists(index_path):
         vector_store = FaissVectorStore.from_persist_dir(index_path)
         storage_context = StorageContext.from_defaults(
             vector_store=vector_store, persist_dir=index_path
         )
-        return load_index_from_storage(storage_context=storage_context)
+        return load_index_from_storage(
+            storage_context=storage_context,
+            service_context=service_context,
+        )
 
     documents = load_documents()
 
@@ -85,7 +103,10 @@ def get_or_build_index():
     index.storage_context.persist(DATA_PATH / "local-api-index")
     return index
 
-index = get_or_build_index()
+
+preset = os.getenv("PRESET", "openai")
+service_context = get_service_context(preset)
+index = get_or_build_index(service_context, preset)
 
 response_synthesizer = get_response_synthesizer(
     service_context=service_context,
